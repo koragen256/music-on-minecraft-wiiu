@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<!-- saved from url=(0046)https://mcbeeringi.github.io/apps/mc/poly.html -->
+<html lang="en" dir="ltr">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <title>NBS Convertor</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.3/react.js"></script>
+<script src="nbs.js"></script>
+
+<body>
+  <style>
+    :root,
+    textarea,
+    input {
+      background-color: #222;
+      color: #fff;
+      font-family: menlo, monospace;
+    }
+
+    .box {
+      background-color: #333;
+      padding: 4px;
+      font-size: 13px;
+    }
+
+    a:link,
+    a:visited {
+      color: #aef;
+    }
+
+    a:link:hover {
+      color: #8af;
+    }
+
+    a:link:active {
+      color: #48f;
+    }
+
+    h1,
+    h2 {
+      margin: 4px;
+    }
+
+    textarea {
+      background-color: #0000;
+      line-height: 14px;
+      min-height: 92px;
+      max-height: 448px;
+      width: calc(100% - 8px);
+      overflow: scroll;
+      resize: vertical;
+    }
+
+    #log {
+      line-height: 14px;
+      max-height: 448px;
+      overflow: scroll;
+      background-color: #333;
+    }
+
+    input:not([type=radio]) {
+      background-color: #0000;
+      display: inline-block;
+      border: none;
+      border-bottom: 2px solid #888;
+      border-radius: 0;
+      min-width: 20em;
+      max-width: 100%;
+      outline: none;
+      transition: .2s;
+    }
+
+    input:not([type=radio]):focus {
+      border-bottom-color: #48fc;
+    }
+
+    .button {
+      background-color: #555;
+      padding: 80px;
+      border-radius: 40px;
+      user-select: none;
+      -webkit-user-select: none;
+      display: inline-block;
+    }
+
+    .button:active {
+      background-color: #48fc;
+    }
+  </style>
+
+
+  <h1>NBS Convertor</h1>
+  <div class="box">
+    <h2>input</h2>
+    <br>
+    Noteblock studio のプロジェクトファイル.NBS(var5)をminecarft wiiuで使える形にします<br>
+    <br>
+    <input type="file" id="finp" onchange="butotnClick()"><span id="finpl"></span>
+    <br>
+    <textarea name="resultt" id="" cols="30" rows="6" hidden=true></textarea>
+  </div>
+  <br>
+  <div class="box">
+    <h2>Setting</h2>
+    <br>
+    <button onclick="RUNbutton()">RUN convert</button>
+
+  </div>
+
+</body>
+
+<script>
+  function butotnClick() {
+    console.log('value: ' + finp.value);
+    let file = finp.files[0];
+
+    console.log('name: ' + file.name);
+    console.log('size: ' + file.size);
+    console.log('type: ' + file.type);
+
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+
+    reader.onload = function () {
+      console.log(reader.result);
+      alert("fin load!");
+
+      var infoarea = document.getElementsByName("resultt")[0];
+
+      infoarea.value = 'name: ' + file.name + "\n";
+      infoarea.value += 'size: ' + file.size + "\n";
+      infoarea.value += 'type: ' + file.type + "\n";
+
+      let nbsdata =new nbs(reader.result);
+      infoarea.value += 'Song_name: ' + nbsdata.Song_name + "\n";
+      infoarea.value += 'Tempo: ' + nbsdata.Tempo + "\n";
+      infoarea.value += 'MIDI_filename: ' + nbsdata.MIDI_filename + "\n";
+      infoarea.hidden = false;
+    }
+
+  }
+
+  function RUNbutton(){
+    console.log('value: ' + finp.value);
+    let file = finp.files[0];
+
+    console.log('name: ' + file.name);
+    console.log('size: ' + file.size);
+    console.log('type: ' + file.type);
+
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+
+    reader.onload = function () {
+      let nbsdata =new nbs(reader.result);
+      console.log(nbsdata);
+      convertNBS(nbsdata);
+    }
+
+  }
+
+  function convertNBS(nbsdata){
+
+    let originaddr=0x14400000;
+
+    let datalen=0;
+    for(let t of nbsdata.Note_blocks){
+      datalen += t.length*0xC
+    }
+
+    let buffer = new ArrayBuffer(0x20 + nbsdata.Note_blocks.length * 0x4 + datalen);
+
+    let dv = new DataView(buffer);
+
+    dv.setUint32(0x4,nbsdata.Note_blocks.length);
+
+    let sequencelistaddr = [];
+
+    let sequencedataindex = 0x20 + nbsdata.Note_blocks.length*4;
+    
+    let offset=0;
+
+    for(let i=0;i<nbsdata.Note_blocks.length;i++){
+      dv.setUint32(sequencedataindex+offset,nbsdata.Note_blocks[i].length);
+      sequencelistaddr.push(sequencedataindex+offset+originaddr);
+      offset+=4;
+      for(let ii=0;ii<nbsdata.Note_blocks[i].length;ii++){
+        let instrument =nbsdata.Note_blocks[i][ii][0];
+        if(instrument==13){
+          instrument = 9;
+        }
+        dv.setUint32(sequencedataindex+offset,instrument);
+        offset+=4;
+        dv.setUint32(sequencedataindex+offset,nbsdata.Note_blocks[i][ii][1]);
+        offset+=4;
+      }
+    }
+
+    for(let i=0;i<sequencelistaddr.length;i++){
+      dv.setUint32(0x20+i*4,sequencelistaddr[i]);
+    }
+
+    savebuffer(dv);
+  }
+
+  function savebuffer(buffer){
+    var a = document.createElement("a");
+    document.body.appendChild(a);
+    a.style = "display: none";
+    console.log(a);
+
+    var blob = new Blob([buffer], { type: "octet/stream" }),
+      url = window.URL.createObjectURL(blob);
+    console.log(url);
+
+    //データを保存する
+    a.href = url;
+    a.download = finp.files[0].name + "_wimiata.bin";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  function csv_array(data) {
+    const dataArray = []; //配列を用意
+    const dataString = data.split('\n'); //改行で分割
+    for (let i = 0; i < dataString.length; i++) { //あるだけループ
+        dataArray[i] = dataString[i].split(',');
+    }
+    console.log(dataArray);
+    return dataArray;
+
+}
+
+  function convertTostadata(midi) {
+
+    let buffer = new ArrayBuffer(0x20 + midi.length * 8);
+
+    let dv = new DataView(buffer);
+
+    dv.setUint32(0x4, midi.length);
+
+    let midit=[];
+
+    for (let i = 0; i < midi.length; i++) {
+      if(midi[i][2]==144){
+        midit.push(midi[i]);
+        //dv.setUint32(0x20 + i * 8, Number(midi[i][0]));
+        //dv.setFloat32(0x24 + i * 8, Number(midi[i][4])/60);
+      }
+    }
+
+    console.log(midit);
+
+    for(let i = 0; i < midit.length; i++){
+      dv.setUint32(0x20 + i * 8, Number(midi[i][0]));
+      let t=(Number(midi[i][3])+12)%25;
+      console.log(t);
+      switch (t) {
+        case 0:
+        dv.setFloat32(0x24 + i * 8, 0.5);
+          break;
+        case 1:
+        dv.setFloat32(0x24 + i * 8, 0.53);
+          break;
+        case 2:
+        dv.setFloat32(0x24 + i * 8, 0.56);
+          break;
+        case 3:
+        dv.setFloat32(0x24 + i * 8, 0.59);
+          break;
+          case 4:
+        dv.setFloat32(0x24 + i * 8, 0.63);
+          break;
+        case 5:
+        dv.setFloat32(0x24 + i * 8, 0.67);
+          break;
+        case 6:
+        dv.setFloat32(0x24 + i * 8, 0.71);
+          break;
+        case 7:
+        dv.setFloat32(0x24 + i * 8, 0.74);
+          break;
+          case 8:
+        dv.setFloat32(0x24 + i * 8, 0.79);
+          break;
+        case 9:
+        dv.setFloat32(0x24 + i * 8, 0.84);
+          break;
+        case 10:
+        dv.setFloat32(0x24 + i * 8, 0.88);
+          break;
+        case 11:
+        dv.setFloat32(0x24 + i * 8, 0.93);
+          break;
+          case 12:
+        dv.setFloat32(0x24 + i * 8, 0.99);
+          break;
+          case 13:
+        dv.setFloat32(0x24 + i * 8, 1.05);
+          break;
+        case 14:
+        dv.setFloat32(0x24 + i * 8, 1.12);
+          break;
+        case 15:
+        dv.setFloat32(0x24 + i * 8, 1.18);
+          break;
+        case 16:
+        dv.setFloat32(0x24 + i * 8, 1.25);
+          break;
+          case 17:
+        dv.setFloat32(0x24 + i * 8, 1.33);
+          break;
+        case 18:
+        dv.setFloat32(0x24 + i * 8, 1.41);
+          break;
+        case 19:
+        dv.setFloat32(0x24 + i * 8, 1.5);
+          break;
+        case 20:
+        dv.setFloat32(0x24 + i * 8, 1.6);
+          break;
+          case 21:
+        dv.setFloat32(0x24 + i * 8, 1.68);
+          break;
+        case 22:
+        dv.setFloat32(0x24 + i * 8, 1.78);
+          break;
+        case 23:
+        dv.setFloat32(0x24 + i * 8, 1.89);
+          break;
+        case 24:
+        dv.setFloat32(0x24 + i * 8, 2.00);
+          break;
+        default:
+      }
+    }
+
+    console.log(buffer);
+    var a = document.createElement("a");
+    document.body.appendChild(a);
+    a.style = "display: none";
+    console.log(a);
+
+
+    console.log(midi.length);
+
+    var blob = new Blob([buffer], { type: "octet/stream" }),
+      url = window.URL.createObjectURL(blob);
+    console.log(url);
+
+    //データを保存する
+    a.href = url;
+    a.download = finp.files[0].name + "_statuedata.bin";
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+  }
+</script>
+
+</html>
