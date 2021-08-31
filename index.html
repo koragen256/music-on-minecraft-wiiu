@@ -172,7 +172,7 @@
       datalen += t.length*0xC
     }
 
-    let buffer = new ArrayBuffer(0x20 + nbsdata.Note_blocks.length * 0x4 + datalen);
+    let buffer = new ArrayBuffer(0x20 + nbsdata.Note_blocks.length * 0x8 + datalen);
 
     let dv = new DataView(buffer);
 
