@@ -99,7 +99,7 @@
     <br>
     Noteblock studio のプロジェクトファイル.NBS(var5)をminecarft wiiuで使える形にします<br>
     <br>
-    <input type="file" id="finp" onchange="butotnClick()"><span id="finpl"></span>
+    <input type="file" id="finp" onchange="butotnClick()" accept=".nbs"><span id="finpl"></span>
     <br>
     <textarea name="resultt" id="" cols="30" rows="6" hidden=true></textarea>
   </div>
@@ -177,6 +177,8 @@
     let dv = new DataView(buffer);
 
     dv.setUint32(0x4,nbsdata.Note_blocks.length);
+    dv.setUint32(0x10,5);
+    dv.setFloat32(0x18,0.2);
 
     let sequencelistaddr = [];
 
